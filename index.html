@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>個人化管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5EBE0;--bg2:#EDD9C8;--bg3:#E8CCBA;
+  --card:#FFFAF6;--border:#E8D5C4;
+  --text:#5C4A3A;--text2:#8B7163;--text3:#B8A090;
+  --accent:#C97B4B;--accent2:#E09B6B;--accent-light:#F5DEC8;
+  --success:#7BAF7B;--success-light:#D4EDDA;
+  --danger:#C96B6B;--nav-h:68px;--radius:12px;
+  --shadow:0 2px 12px rgba(92,74,58,.08);
+  --shadow-md:0 4px 24px rgba(92,74,58,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+input,select,textarea{font-family:inherit;outline:none}
+
+.page{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);opacity:0;transition:opacity .3s;max-width: 880px; margin: auto; box-shadow: 0px 5px 47px #c5b7b4;}
+.page.active{display:flex;opacity:1}
+.page.fade-in{animation:fadeIn .3s ease forwards}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+#page-loading{align-items:center;justify-content:center}
+.loading-text{font-size:18px;font-weight:600;color:var(--text3);letter-spacing:2px}
+.loading-dots span{display:inline-block;animation:dotB 1.4s infinite ease-in-out;opacity:0}
+.loading-dots span:nth-child(1){animation-delay:0s}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotB{0%,80%,100%{opacity:0;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+
+#page-unlock{align-items:center;justify-content:center;gap:28px;padding:40px 24px}
+.unlock-logo{font-size:48px;line-height:1}
+.unlock-title{font-size:22px;font-weight:800;text-align:center}
+.unlock-sub{font-size:14px;color:var(--text3);text-align:center;margin-top:6px}
+.unlock-form{width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px}
+.pin-row{display:flex;gap:10px;justify-content:center}
+.pin-box{width:46px;height:56px;border:2px solid var(--border);border-radius:var(--radius);background:var(--card);font-size:22px;font-weight:700;text-align:center;color:var(--text);transition:border-color .2s,box-shadow .2s}
+.pin-box:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.pin-box.filled{border-color:var(--accent2)}
+.error-msg{text-align:center;color:var(--danger);font-size:13px;font-weight:600;min-height:18px;opacity:0;transition:opacity .2s}
+.error-msg.show{opacity:1}
+.btn-primary{background:var(--accent);color:#fff;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;transition:background .2s,transform .1s;box-shadow:0 3px 12px rgba(201,123,75,.3)}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
+.inner-page{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:calc(var(--nav-h)+16px);-webkit-overflow-scrolling:touch}
+.page-header{padding:20px 20px 12px;position:sticky;top:0;background:var(--bg);z-index:10;border-bottom:1px solid var(--border);box-shadow: 0px 2px 7px #c5b7b4;}
+.page-header h1{font-size:20px;font-weight:800}
+.page-header .subtitle{font-size:13px;color:var(--text3);margin-top:2px}
+
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:var(--card);border-top:1.5px solid var(--border);display:flex;z-index:100;box-shadow:0 -2px 16px rgba(92,74,58,.06)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:var(--text3);font-size:10px;font-weight:600;transition:color .2s;padding-bottom:4px}
+.nav-btn .nav-icon{font-size:20px;line-height:1;transition:transform .2s}
+.nav-btn.active{color:var(--accent)}
+.nav-btn.active .nav-icon{transform:scale(1.15)}
+
+.section-label{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:16px 20px 6px}
+.drag-hint{font-size:11px;color:var(--text3);text-align:center;padding:6px 16px 0;font-weight:600}
+.cards-wrap{padding:4px 16px;display:flex;flex-direction:column;gap:10px}
+
+/* ── group card ── */
+.group-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .2s,border-color .2s}
+.group-card:hover{box-shadow:var(--shadow-md)}
+.group-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-light)}
+.group-card.dragging-card{opacity:.4}
+/* FIX 4: 已完成主項目視覺 */
+.group-card.group-all-done{border-color:var(--success-light);opacity:.82}
+
+.group-header{display:flex;align-items:flex-start;padding:12px 14px;cursor:pointer;user-select:none;gap:8px;min-height:52px}
+.drag-handle{color:var(--text3);font-size:17px;cursor:grab;flex-shrink:0;padding:2px 4px;border-radius:6px;transition:background .15s;touch-action:none;line-height:1;margin-top:2px}
+.drag-handle:hover{background:var(--bg2)}
+.drag-handle:active{cursor:grabbing}
+
+/* FIX 3: group header left — meta 在上，名稱在下 */
+.group-header-left{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.group-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.group-name{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.group-name.done{color:var(--text3);text-decoration:line-through}
+/* FIX 4: 完成日期顯示在主項目名稱旁 */
+.group-done-date{font-size:11px;color:var(--success);font-weight:700;margin-top:1px}
+
+.group-count{font-size:12px;font-weight:600;color:var(--text3);background:var(--bg2);padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;margin-top:2px}
+.group-count.all-done{background:var(--success-light);color:var(--success)}
+.group-arrow{color:var(--text3);font-size:12px;transition:transform .25s;flex-shrink:0;margin-top:4px}
+.group-card.open .group-arrow{transform:rotate(90deg)}
+.group-body{display:none;border-top:1px solid var(--border)}
+.group-card.open .group-body{display:block}
+
+/* ── tags ── */
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tag-status{background:var(--bg2);color:var(--text2)}
+.tag-priority-high{background:#FFE4E4;color:#C96B6B}
+.tag-priority-mid{background:#FFF3CD;color:#A07B20}
+.tag-priority-low{background:#D4EDDA;color:#4A8A4A}
+.tag-due{font-size:11px;color:var(--text3);font-weight:600}
+.tag-due.overdue{color:var(--danger)}
+
+/* ── child items ── */
+.child-item{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bg2);transition:background .15s}
+.child-item:last-child{border-bottom:none}
+.child-item:hover{background:var(--bg)}
+.child-item.is-done{opacity:.65;background:var(--bg)}
+.child-check{width:20px;height:20px;border:2px solid var(--border);border-radius:6px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:2px;background:#fff}
+.child-check:hover{border-color:var(--accent)}
+.child-check.checked{background:var(--success);border-color:var(--success);color:#fff}
+.child-check.checked::after{content:'✓';font-size:12px;font-weight:700}
+/* pending = 暫存未送出 */
+.child-check.pending{background:var(--accent-light);border-color:var(--accent);animation:pulse .9s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.7}50%{opacity:1}}
+.child-info{flex:1;min-width:0}
+.child-name{font-size:14px;font-weight:600;color:var(--text);word-break:break-all}
+.child-name.done{color:var(--text3);text-decoration:line-through}
+.child-note{font-size:11px;color:var(--text3);margin-top:3px;font-style:italic;word-break:break-all}
+.child-actions-btn{background:transparent;color:var(--text3);font-size:18px;line-height:1;padding:4px;border-radius:8px;flex-shrink:0;transition:background .15s,color .15s}
+.child-actions-btn:hover{background:var(--bg2);color:var(--text)}
+
+/* ── dropdown ── */
+.dropdown-menu{position:fixed;background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);z-index:300;overflow:hidden;min-width:150px;animation:dropIn .15s ease}
+@keyframes dropIn{from{opacity:0;transform:scale(.95) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.dropdown-item{display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;transition:background .1s}
+.dropdown-item:hover{background:var(--bg2)}
+.dropdown-item.danger{color:var(--danger)}
+.dropdown-overlay{position:fixed;inset:0;z-index:290}
+
+/* ── add buttons ── */
+.btn-add-group{display:flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border-radius:var(--radius);padding:11px 18px;font-size:14px;font-weight:700;margin:12px 16px 4px;width:calc(100% - 32px);box-shadow:0 2px 8px rgba(201,123,75,.25);transition:background .2s}
+.btn-add-group:hover{background:var(--accent2)}
+.btn-add-child{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg);color:var(--accent);border-radius:8px;padding:10px;font-size:13px;font-weight:700;margin:6px 12px 10px;border:1.5px dashed var(--accent-light);transition:background .15s,border-color .15s}
+.btn-add-child:hover{background:var(--accent-light);border-color:var(--accent)}
+
+/* ── empty ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state .emoji{font-size:40px;margin-bottom:12px}
+.empty-state p{font-size:14px;font-weight:600}
+
+/* ── modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(92,74,58,.35);z-index:500;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:0 0 32px;max-height:90vh;overflow-y:auto;transform:translateY(40px);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.modal-overlay.open .modal-sheet{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);padding:16px 20px 12px;border-bottom:1px solid var(--border)}
+.modal-body{padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.form-input,.form-select,.form-textarea{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:500;color:var(--text);width:100%;transition:border-color .2s,box-shadow .2s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.form-textarea{resize:none;min-height:80px}
+.form-select{appearance:none;-webkit-appearance:none;cursor:pointer}
+.modal-footer{padding:4px 20px 0;display:flex;gap:10px}
+.btn-cancel{flex:1;background:var(--bg2);color:var(--text2);border-radius:var(--radius);padding:13px;font-size:14px;font-weight:700;transition:background .15s}
+.btn-cancel:hover{background:var(--bg3)}
+.btn-save{flex:2;background:var(--accent);color:#fff;border-radius:var(--radius);padding:13px;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(201,123,75,.3);transition:background .2s}
+.btn-save:hover{background:var(--accent2)}
+.btn-save:disabled{opacity:.6;cursor:not-allowed}
+
+/* ── toast ── */
+#toast{position:fixed;bottom:calc(var(--nav-h)+16px);left:50%;transform:translateX(-50%) translateY(20px);background:#3A2E27;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:24px;z-index:1000;opacity:0;transition:opacity .3s,transform .3s;white-space:nowrap;max-width:300px;text-align:center;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── FIX 5: 右下角存存鈕 ── */
+#save-fab{
+  position:fixed;
+  right:20px;
+  bottom:calc(var(--nav-h) + 16px);
+  width:56px;height:56px;
+  border-radius:50%;
+  background:var(--accent);
+  color:#fff;
+  font-size:26px;
+  line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px rgba(201,123,75,.45);
+  z-index:150;
+  transition:transform .2s,background .2s,opacity .3s;
+  opacity:0;pointer-events:none;
+}
+#save-fab.visible{opacity:1;pointer-events:all}
+#save-fab:hover{background:var(--accent2);transform:scale(1.08)}
+#save-fab:active{transform:scale(.94)}
+#save-fab .fab-badge{
+  position:absolute;top:-2px;right:-2px;
+  background:var(--danger);color:#fff;
+  font-size:10px;font-weight:800;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--card);
+}
+
+/* ── overview stats ── */
+.overview-stats{display:flex;gap:10px;padding:12px 16px 4px}
+.stat-box{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+.stat-num{font-size:22px;font-weight:800;color:var(--accent)}
+.stat-label{font-size:10px;font-weight:600;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── calendar ── */
+.calendar-wrap{padding:12px 16px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px}
+.cal-title{font-size:18px;font-weight:800;color:var(--text)}
+.cal-nav-btn{background:var(--card);border:1.5px solid var(--border);border-radius:10px;width:36px;height:36px;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center;transition:background .15s}
+.cal-nav-btn:hover{background:var(--bg2)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-day-label{text-align:center;font-size:11px;font-weight:700;color:var(--text3);padding:4px 0 8px}
+.cal-cell{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text2);background:transparent;cursor:default;transition:background .15s}
+.cal-cell.today{background:var(--accent-light);color:var(--accent);font-weight:800}
+.cal-cell.has-data{background:var(--success-light);color:var(--success);cursor:pointer}
+.cal-cell.has-data:hover{background:#C3E6CB}
+.cal-cell.empty{opacity:0;pointer-events:none}
+.cal-count{font-size:9px;font-weight:800;line-height:1;margin-top:1px}
+.cal-summary{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px;text-align:center}
+.cal-summary-num{font-size:32px;font-weight:800;color:var(--accent)}
+.cal-summary-label{font-size:13px;color:var(--text3);font-weight:600;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="page active" id="page-loading">
+  <div class="loading-text">loading<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+</div>
+
+<div class="page" id="page-unlock">
+  <div class="unlock-logo">🔐</div>
+  <div><div class="unlock-title">個人化管理</div><div class="unlock-sub">請輸入六位數密碼</div></div>
+  <div class="unlock-form">
+    <div class="pin-row">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      <input class="pin-box" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+    </div>
+    <div class="error-msg" id="pin-error">密碼錯誤，請再試一次</div>
+    <button class="btn-primary" id="btn-unlock">確認解鎖</button>
+  </div>
+</div>
+
+<div class="page" id="page-inner">
+  <div id="tab-overview" class="inner-page" style="display:none">
+    <div class="page-header"><h1>💸 欠債總覽</h1><div class="subtitle">尚未完成的任務</div></div>
+    <div class="overview-stats" id="overview-stats"></div>
+    <div class="drag-hint">⠿ 長按卡片拖曳可調整順序</div>
+    <div id="overview-content"></div>
+  </div>
+
+  <div id="tab-work" class="inner-page" style="display:none">
+    <div class="page-header"><h1>💼 工作</h1></div>
+    <button class="btn-add-group" onclick="openAddGroupModal('工作')">➕ 新增主項目</button>
+    <div id="work-content"></div>
+  </div>
+
+  <div id="tab-study" class="inner-page" style="display:none">
+    <div class="page-header"><h1>📚 學業</h1></div>
+    <button class="btn-add-group" onclick="openAddGroupModal('學業')">➕ 新增主項目</button>
+    <div id="study-content"></div>
+  </div>
+
+  <div id="tab-personal" class="inner-page" style="display:none">
+    <div class="page-header"><h1>🌿 個人生活</h1></div>
+    <button class="btn-add-group" onclick="openAddGroupModal('個人')">➕ 新增主項目</button>
+    <div id="personal-content"></div>
+  </div>
+
+  <div id="tab-achievement" class="inner-page" style="display:none">
+    <div class="page-header"><h1>🏆 成就</h1></div>
+    <div class="calendar-wrap" id="calendar-wrap"></div>
+  </div>
+
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-tab="overview"><span class="nav-icon">💸</span><span>欠債</span></button>
+    <button class="nav-btn" data-tab="work"><span class="nav-icon">💼</span><span>工作</span></button>
+    <button class="nav-btn" data-tab="study"><span class="nav-icon">📚</span><span>學業</span></button>
+    <button class="nav-btn" data-tab="personal"><span class="nav-icon">🌿</span><span>個人</span></button>
+    <button class="nav-btn" data-tab="achievement"><span class="nav-icon">🏆</span><span>成就</span></button>
+  </nav>
+</div>
+
+<!-- 存存鈕 FAB -->
+<button id="save-fab" onclick="flushPendingComplete()" title="存存！">
+  ⭐
+  <span class="fab-badge" id="fab-badge">0</span>
+</button>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">新增</div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="btn-modal-cancel">取消</button>
+      <button class="btn-save" id="btn-modal-save">儲存</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════ */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiahk4_4MnuFwZ9h8kxNckZzAKwQiNMxdCHA3z4hrqxgjB5WL5uG1IEsSBRfr5MBdE/exec';
+
+/* ═══════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════ */
+let allItems        = [];   // Sheet1 全部
+let statusOptions   = {};   // { '工作':[...], ... }
+let dailyCounts     = {};   // { 'YYYY-MM-DD': N }
+let overviewGroupOrder = [];
+
+// FIX 5: 待儲存佇列 { id, completeDate }
+let pendingComplete = [];
+
+let calendarYear  = new Date().getFullYear();
+let calendarMonth = new Date().getMonth();
+
+/* ═══════════════════════════════════════════════════
+   UTILS
+   ═══════════════════════════════════════════════════ */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active','fade-in');p.style.display='none';});
+  const p=document.getElementById(id); p.style.display='flex';
+  requestAnimationFrame(()=>p.classList.add('active','fade-in'));
+}
+let _tt;
+function showToast(msg,dur=2400){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),dur);
+}
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function yesterdayStr(){
+  const d=new Date(); d.setDate(d.getDate()-1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatDate(str){
+  if(!str) return '';
+  const p=str.split('-');
+  if(p.length===3) return `${parseInt(p[1])}/${parseInt(p[2])}`;
+  return str;
+}
+function isOverdue(str){ return str ? str<todayStr() : false; }
+function priorityTag(p){
+  if(p==='高') return `<span class="tag tag-priority-high">🔴 高</span>`;
+  if(p==='中') return `<span class="tag tag-priority-mid">🟡 中</span>`;
+  if(p==='低') return `<span class="tag tag-priority-low">🟢 低</span>`;
+  return '';
+}
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ═══════════════════════════════════════════════════
+   API
+   ═══════════════════════════════════════════════════ */
+async function apiGet(action){
+  const r=await fetch(`${APPS_SCRIPT_URL}?action=${action}&t=${Date.now()}`);
+  const txt=await r.text();
+  try{return JSON.parse(txt);}catch{throw new Error('格式錯誤: '+txt.slice(0,120));}
+}
+async function apiPost(payload){
+  const r=await fetch(APPS_SCRIPT_URL,{
+    method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  });
+  const txt=await r.text();
+  try{return JSON.parse(txt);}catch{throw new Error('格式錯誤: '+txt.slice(0,120));}
+}
+
+/* ═══════════════════════════════════════════════════
+   LOAD DATA
+   ═══════════════════════════════════════════════════ */
+async function loadData(){
+  const data=await apiGet('getData');
+  allItems      = data.items         || [];
+  statusOptions = data.statusOptions || {};
+  dailyCounts   = data.dailyCounts   || {};
+  rebuildOrder();
+  triggerDailyRecord();
+}
+function rebuildOrder(){
+  // 收集所有「有效未完成」的 group key（FALSE 且不在 pending 佇列）
+  const _pendingIds=new Set(pendingComplete.map(p=>p.id));
+  const fromData=[];
+  allItems.filter(it=>
+    it['是否完成']!=='TRUE' &&
+    it['主項目名稱'] &&
+    it['子項目名稱'] &&
+    !_pendingIds.has(it.id)
+  ).forEach(it=>{
+    const k=it['大類']+'||'+it['主項目名稱'];
+    if(!fromData.includes(k)) fromData.push(k);
+  });
+  // 保留使用者拖曳過的順序，只補入新出現的 key（插在同大類末尾）
+  const existing=overviewGroupOrder.filter(k=>fromData.includes(k));
+  const newKeys=fromData.filter(k=>!existing.includes(k));
+  const merged=[...existing];
+  newKeys.forEach(nk=>{
+    const cat=nk.split('||')[0];
+    let lastIdx=-1;
+    merged.forEach((mk,i)=>{ if(mk.split('||')[0]===cat) lastIdx=i; });
+    if(lastIdx>=0) merged.splice(lastIdx+1,0,nk);
+    else merged.push(nk);
+  });
+  overviewGroupOrder=merged;
+}
+function triggerDailyRecord(){
+  const yd=yesterdayStr();
+  if(dailyCounts[yd]!==undefined) return;
+  const cnt=allItems.filter(it=>String(it['完成日期']).slice(0,10)===yd&&it['是否完成']==='TRUE'&&it['子項目名稱']).length;
+  apiPost({action:'recordDaily',date:yd,count:cnt}).then(res=>{
+    if(res.status==='success') dailyCounts[yd]=cnt;
+  }).catch(()=>{});
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded',async()=>{
+  try{await loadData();}catch(e){console.warn('初始載入:',e);}
+  setTimeout(()=>showPage('page-unlock'),700);
+});
+
+/* ═══════════════════════════════════════════════════
+   PIN
+   ═══════════════════════════════════════════════════ */
+const pinBoxes=document.querySelectorAll('.pin-box');
+pinBoxes.forEach((box,i)=>{
+  box.addEventListener('input',e=>{
+    const v=e.target.value.replace(/\D/g,''); e.target.value=v.slice(-1);
+    if(v&&i<5) pinBoxes[i+1].focus();
+    pinBoxes.forEach(b=>b.classList.toggle('filled',b.value.length>0));
+  });
+  box.addEventListener('keydown',e=>{
+    if(e.key==='Backspace'&&!e.target.value&&i>0){
+      pinBoxes[i-1].focus(); pinBoxes[i-1].value='';
+      pinBoxes.forEach(b=>b.classList.toggle('filled',b.value.length>0));
+    }
+  });
+  box.addEventListener('focus',()=>box.select());
+});
+pinBoxes[5].addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-unlock').click();});
+function getPin(){return Array.from(pinBoxes).map(b=>b.value).join('');}
+function clearPin(){pinBoxes.forEach(b=>{b.value='';b.classList.remove('filled');});pinBoxes[0].focus();}
+
+document.getElementById('btn-unlock').addEventListener('click',async()=>{
+  const pin=getPin();
+  if(pin.length<6){showPinError('請輸入完整 6 位密碼');return;}
+  const btn=document.getElementById('btn-unlock');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>驗證中…';
+  try{
+    const res=await apiGet('getPassword');
+    if(String(res.password).trim()===pin){showPage('page-inner');switchTab('overview');}
+    else{showPinError('密碼錯誤，請再試一次');clearPin();}
+  }catch(e){showPinError('連線失敗，請稍後再試');}
+  finally{btn.disabled=false;btn.textContent='確認解鎖';}
+});
+function showPinError(m){const el=document.getElementById('pin-error');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
+
+/* ═══════════════════════════════════════════════════
+   TAB
+   ═══════════════════════════════════════════════════ */
+const TAB_IDS={overview:'tab-overview',work:'tab-work',study:'tab-study',personal:'tab-personal',achievement:'tab-achievement'};
+document.querySelectorAll('.nav-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
+function switchTab(tab){
+  Object.values(TAB_IDS).forEach(id=>document.getElementById(id).style.display='none');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.getElementById(TAB_IDS[tab]).style.display='block';
+  renderTab(tab);
+}
+function catToTab(cat){return{'工作':'work','學業':'study','個人':'personal'}[cat]||'work';}
+function renderTab(tab){
+  if(tab==='overview')      renderOverview();
+  else if(tab==='work')     renderGroupPage('工作','work-content');
+  else if(tab==='study')    renderGroupPage('學業','study-content');
+  else if(tab==='personal') renderGroupPage('個人','personal-content');
+  else if(tab==='achievement') renderCalendar();
+}
+
+/* ═══════════════════════════════════════════════════
+   GROUP META HELPER
+   主項目的狀態/優先/截止 存在 placeholder row（子項目名稱為空的那筆）
+   ═══════════════════════════════════════════════════ */
+function getGroupMeta(cat, groupName){
+  // 找該主項目的佔位行（子項目名稱為空）
+  const placeholder = allItems.find(it=>it['大類']===cat && it['主項目名稱']===groupName && !it['子項目名稱']);
+  if(placeholder) return { status: placeholder['狀態']||'', priority: placeholder['優先程度']||'', due: placeholder['截止日期']||'', id: placeholder.id };
+  return { status:'', priority:'', due:'', id:null };
+}
+
+/* ═══════════════════════════════════════════════════
+   OVERVIEW
+   ═══════════════════════════════════════════════════ */
+function renderOverview(){
+  const cats=['工作','學業','個人'];
+  const icons={'工作':'💼','學業':'📚','個人':'🌿'};
+
+  // 「有效未完成」= allItems 裡 FALSE 且不在 pendingComplete 佇列（勾選待存）
+  // 這是所有過濾邏輯的唯一標準，統一用 isActiveIncomplete()
+  const pendingIds=new Set(pendingComplete.map(p=>p.id));
+  function isActiveIncomplete(it){
+    return it['是否完成']!=='TRUE' && it['子項目名稱'] && !pendingIds.has(it.id);
+  }
+
+  const incomplete=allItems.filter(isActiveIncomplete);
+
+  document.getElementById('overview-stats').innerHTML=cats.map(cat=>{
+    const c=incomplete.filter(it=>it['大類']===cat).length;
+    return `<div class="stat-box"><div class="stat-num">${c}</div><div class="stat-label">${icons[cat]} ${cat}</div></div>`;
+  }).join('');
+
+  const content=document.getElementById('overview-content');
+  if(incomplete.length===0){
+    content.innerHTML='<div class="empty-state"><div class="emoji">🎉</div><p>太厲害了！全部完成！</p></div>';
+    return;
+  }
+  rebuildOrder();
+
+  const catOrder=['工作','學業','個人'];
+  let html='';
+  catOrder.forEach(cat=>{
+    const catKeys=overviewGroupOrder.filter(k=>{
+      const [c,g]=k.split('||');
+      if(c!==cat) return false;
+      // 用同一套 isActiveIncomplete 判斷該 group 是否有需要顯示的子項目
+      const kids=allItems.filter(it=>it['大類']===cat&&it['主項目名稱']===g&&isActiveIncomplete(it));
+      return kids.length>0;
+    });
+    if(catKeys.length===0) return;
+    html+=`<div class="section-label">${icons[cat]||''} ${cat}</div>`;
+    html+=`<div class="cards-wrap" data-cat="${esc(cat)}">`;
+    catKeys.forEach(key=>{
+      const [,groupName]=key.split('||');
+      const kids=allItems.filter(it=>it['大類']===cat&&it['主項目名稱']===groupName&&isActiveIncomplete(it));
+      html+=buildGroupCardHtml(cat,groupName,kids,true);
+    });
+    html+='</div>';
+  });
+  content.innerHTML=html;
+  attachGroupToggle(content);
+  attachOverviewDrag(content);
+}
+
+/* ═══════════════════════════════════════════════════
+   GROUP PAGE
+   FIX 4: 已完成主項目（所有子項目都完成）移最下方
+   ═══════════════════════════════════════════════════ */
+function renderGroupPage(cat,containerId){
+  const items=allItems.filter(it=>it['大類']===cat);
+  const names=[];
+  items.forEach(it=>{if(it['主項目名稱']&&!names.includes(it['主項目名稱']))names.push(it['主項目名稱']);});
+  const el=document.getElementById(containerId);
+  if(names.length===0){
+    el.innerHTML='<div class="empty-state"><div class="emoji">📝</div><p>還沒有項目，點上方按鈕新增</p></div>';
+    return;
+  }
+
+  // 判斷主項目是否全部完成
+  function isGroupAllDone(name){
+    const ch=items.filter(it=>it['主項目名稱']===name&&it['子項目名稱']);
+    return ch.length>0 && ch.every(it=>it['是否完成']==='TRUE');
+  }
+
+  const undoneGroups=names.filter(n=>!isGroupAllDone(n));
+  const doneGroups  =names.filter(n=> isGroupAllDone(n));
+  const sortedNames=[...undoneGroups,...doneGroups];
+
+  el.innerHTML='<div class="cards-wrap">'+sortedNames.map(name=>{
+    const ch=items.filter(it=>it['主項目名稱']===name&&it['子項目名稱']);
+    return buildGroupCardHtml(cat,name,ch,false);
+  }).join('')+'</div>';
+  attachGroupToggle(el);
+}
+
+/* ═══════════════════════════════════════════════════
+   CARD HTML BUILDER
+   FIX 3: 主項目 header = meta（狀態/優先/截止）在上 + 名稱在下
+   FIX 4: 已完成主項目 header 顯示完成日期
+   ═══════════════════════════════════════════════════ */
+function buildGroupCardHtml(cat,groupName,displayKids,overviewMode){
+  const allKids=allItems.filter(it=>it['大類']===cat&&it['主項目名稱']===groupName&&it['子項目名稱']);
+  const doneCount=allKids.filter(it=>it['是否完成']==='TRUE').length;
+  const total=allKids.length;
+  const allDone=doneCount===total&&total>0;
+
+  // FIX 3: 讀主項目的 meta
+  const meta=getGroupMeta(cat,groupName);
+  const ov=isOverdue(meta.due)&&!allDone;
+  const metaHtml=`<div class="group-meta">
+    ${meta.status?`<span class="tag tag-status">${esc(meta.status)}</span>`:''}
+    ${priorityTag(meta.priority)}
+    ${meta.due?`<span class="tag-due${ov?' overdue':''}">📅 ${formatDate(meta.due)}${ov?' ⚠️':''}</span>`:''}
+  </div>`;
+
+  // FIX 4: 已完成主項目 → 顯示最晚完成日期
+  let doneDateHtml='';
+  if(allDone){
+    const dates=allKids.map(it=>it['完成日期']).filter(Boolean).sort();
+    const latest=dates[dates.length-1];
+    if(latest) doneDateHtml=`<div class="group-done-date">✅ 完成於 ${formatDate(latest)}</div>`;
+  }
+
+  // 子項目：已完成排後
+  let kidsHtml='';
+  if(displayKids.length===0&&!overviewMode){
+    kidsHtml='<div style="padding:8px 16px 4px;font-size:13px;color:var(--text3)">尚無子項目</div>';
+  } else {
+    // overview 直接顯示，group page 未完成在前
+    const ordered=overviewMode ? displayKids : [
+      ...displayKids.filter(it=>it['是否完成']!=='TRUE'),
+      ...displayKids.filter(it=>it['是否完成']==='TRUE'),
+    ];
+    ordered.forEach(it=>{ kidsHtml+=buildChildItemHtml(it,overviewMode); });
+  }
+  if(!overviewMode){
+    kidsHtml+=`<button class="btn-add-child" onclick="openAddChildModal('${esc(cat)}','${esc(groupName)}')">➕ 新增子項目</button>`;
+  }
+
+  const handle=overviewMode?`<span class="drag-handle" title="拖曳排序">⠿</span>`:'';
+  const menuBtn=!overviewMode?`<button class="child-actions-btn" style="font-size:16px;margin-top:2px" onclick="event.stopPropagation();openGroupMenu(this,'${esc(cat)}','${esc(groupName)}','${esc(meta.id||'')}')">⋯</button>`:'';
+
+  return `<div class="group-card${allDone?' group-all-done':''}" data-group="${esc(groupName)}" data-cat="${esc(cat)}">
+    <div class="group-header">
+      ${handle}
+      <div class="group-header-left">
+        ${metaHtml}
+        <div class="group-name${allDone?' done':''}">${esc(groupName)}</div>
+        ${doneDateHtml}
+      </div>
+      <span class="group-count${allDone?' all-done':''}">${doneCount}/${total}</span>
+      ${menuBtn}
+      <span class="group-arrow">▶</span>
+    </div>
+    <div class="group-body">${kidsHtml}</div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   CHILD ITEM HTML （子項目本身不再顯示 meta，只顯示名稱+備註）
+   ═══════════════════════════════════════════════════ */
+function buildChildItemHtml(it,overviewMode){
+  const done=it['是否完成']==='TRUE';
+  const isPending=pendingComplete.some(p=>p.id===it.id);
+  let checkClass='child-check';
+  if(done) checkClass+=' checked';
+  else if(isPending) checkClass+=' pending';
+
+  return `<div class="child-item${done?' is-done':''}" data-id="${esc(it.id)}">
+    ${overviewMode?`<div class="${checkClass}" onclick="toggleComplete(this,'${esc(it.id)}')"></div>`:''}
+    <div class="child-info">
+      <div class="child-name${done?' done':''}">${esc(it['子項目名稱'])}</div>
+      ${it['備註']?`<div class="child-note">${esc(it['備註'])}</div>`:''}
+    </div>
+    ${!overviewMode?`<div style="position:relative"><button class="child-actions-btn" onclick="openChildMenu(this,'${esc(it.id)}')">⋯</button></div>`:''}
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   GROUP TOGGLE
+   ═══════════════════════════════════════════════════ */
+function attachGroupToggle(container){
+  container.querySelectorAll('.group-header').forEach(h=>{
+    h.addEventListener('click',e=>{
+      if(e.target.closest('.drag-handle')||e.target.closest('.child-actions-btn')) return;
+      h.closest('.group-card').classList.toggle('open');
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   OVERVIEW DRAG-TO-REORDER
+   ═══════════════════════════════════════════════════ */
+function attachOverviewDrag(container){
+  let dragging=null;
+  let draggingCat=null;
+
+  container.querySelectorAll('.drag-handle').forEach(handle=>{
+    function start(e){
+      e.stopPropagation();
+      dragging=handle.closest('.group-card');
+      draggingCat=dragging.dataset.cat;
+      dragging.classList.add('dragging-card');
+    }
+    handle.addEventListener('mousedown',start);
+    handle.addEventListener('touchstart',start,{passive:true});
+  });
+
+  // 問題3: getTarget 只在同大類的 cards-wrap 內搜尋
+  function getTarget(y){
+    if(!dragging) return null;
+    // 找同大類的 wrap
+    const wrap=container.querySelector(`.cards-wrap[data-cat="${draggingCat}"]`);
+    if(!wrap) return null;
+    for(const c of wrap.querySelectorAll('.group-card')){
+      if(c===dragging) continue;
+      const r=c.getBoundingClientRect();
+      if(y>=r.top&&y<=r.bottom) return c;
+    }
+    return null;
+  }
+
+  function onMove(y){
+    if(!dragging) return;
+    container.querySelectorAll('.group-card').forEach(c=>c.classList.remove('drag-over'));
+    const t=getTarget(y);
+    if(t){
+      t.classList.add('drag-over');
+      const r=t.getBoundingClientRect();
+      if(y<r.top+r.height/2) t.parentNode.insertBefore(dragging,t);
+      else t.parentNode.insertBefore(dragging,t.nextSibling);
+    }
+  }
+
+  function onEnd(){
+    if(!dragging) return;
+    dragging.classList.remove('dragging-card');
+    container.querySelectorAll('.group-card').forEach(c=>c.classList.remove('drag-over'));
+    // 問題3: 重建順序時，只更新同大類的 keys，其他大類保持原順序
+    const allCats=['工作','學業','個人'];
+    const newOrder=[];
+    allCats.forEach(cat=>{
+      const wrap=container.querySelector(`.cards-wrap[data-cat="${cat}"]`);
+      if(wrap){
+        wrap.querySelectorAll('.group-card').forEach(c=>newOrder.push(c.dataset.cat+'||'+c.dataset.group));
+      } else {
+        // 大類不在畫面上，保留舊順序
+        overviewGroupOrder.filter(k=>k.split('||')[0]===cat).forEach(k=>newOrder.push(k));
+      }
+    });
+    // 追加隱藏的（已完成不在畫面）
+    const visible=new Set(newOrder);
+    overviewGroupOrder.filter(k=>!visible.has(k)).forEach(k=>newOrder.push(k));
+    overviewGroupOrder=newOrder;
+    dragging=null; draggingCat=null;
+  }
+
+  document.addEventListener('mousemove',e=>{if(dragging)onMove(e.clientY);});
+  document.addEventListener('mouseup',onEnd);
+  document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();onMove(e.touches[0].clientY);}},{passive:false});
+  document.addEventListener('touchend',onEnd);
+}
+
+/* ═══════════════════════════════════════════════════
+   FIX 5: COMPLETE TOGGLE — 存入佇列，按存存鈕才送出
+   ═══════════════════════════════════════════════════ */
+function toggleComplete(checkEl, id){
+  if(checkEl.classList.contains('checked')) return;
+
+  const it=allItems.find(i=>i.id===id);
+  if(!it) return;
+
+  // 若已在佇列 → 取消
+  const idx=pendingComplete.findIndex(p=>p.id===id);
+  if(idx>=0){
+    pendingComplete.splice(idx,1);
+    checkEl.classList.remove('pending');
+    updateFab();
+    return;
+  }
+
+  // 加入佇列（本地 state 不立即改，UI 顯示 pending 動畫）
+  pendingComplete.push({id, completeDate: todayStr()});
+  checkEl.classList.add('pending');
+  updateFab();
+  showToast('加入待存清單，點 ⭐ 儲存',2000);
+}
+
+function updateFab(){
+  const fab=document.getElementById('save-fab');
+  const badge=document.getElementById('fab-badge');
+  const n=pendingComplete.length;
+  badge.textContent=n;
+  fab.classList.toggle('visible', n>0);
+}
+
+async function flushPendingComplete(){
+  if(pendingComplete.length===0) return;
+  const fab=document.getElementById('save-fab');
+  fab.innerHTML='<span class="spinner" style="border-top-color:#fff;width:20px;height:20px"></span>';
+
+  const toSave=[...pendingComplete];
+  let successCount=0;
+  const failed=[];
+
+  for(const p of toSave){
+    try{
+      const res=await apiPost({action:'complete',id:p.id,completeDate:p.completeDate});
+      if(res.status==='success'){
+        const it=allItems.find(i=>i.id===p.id);
+        if(it){ it['是否完成']='TRUE'; it['完成日期']=p.completeDate; }
+        pendingComplete=pendingComplete.filter(x=>x.id!==p.id);
+        successCount++;
+      } else {
+        failed.push(p.id);
+      }
+    }catch(e){ failed.push(p.id); }
+  }
+
+  fab.innerHTML='⭐<span class="fab-badge" id="fab-badge">0</span>';
+  updateFab();
+
+  if(failed.length===0){
+    showToast(`✅ ${successCount} 筆已儲存！`);
+    renderOverview();
+  } else {
+    showToast(`⚠️ ${failed.length} 筆儲存失敗，請重試`);
+    renderOverview(); // re-render 讓 pending 樣式還原
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   DROPDOWN
+   ═══════════════════════════════════════════════════ */
+let _ddMenu=null;
+function closeDropdown(){if(_ddMenu){_ddMenu.remove();_ddMenu=null;}const o=document.querySelector('.dropdown-overlay');if(o)o.remove();}
+function showDropdown(btnEl,items){
+  closeDropdown();
+  const ov=document.createElement('div'); ov.className='dropdown-overlay';
+  ov.addEventListener('click',closeDropdown); document.body.appendChild(ov);
+  const menu=document.createElement('div'); menu.className='dropdown-menu';
+  const r=btnEl.getBoundingClientRect();
+  menu.style.top=Math.min(r.bottom+4,window.innerHeight-180)+'px';
+  menu.style.right=(window.innerWidth-r.right+4)+'px';
+  menu.innerHTML=items.map(it=>`<div class="dropdown-item${it.d?' danger':''}" onclick="closeDropdown();${it.fn}">${it.label}</div>`).join('');
+  document.body.appendChild(menu); _ddMenu=menu;
+}
+function openGroupMenu(btnEl,cat,gn,metaId){
+  showDropdown(btnEl,[
+    {label:'✏️ 編輯主項目',fn:`openEditGroupModal('${esc(cat)}','${esc(gn)}','${esc(metaId)}')`},
+    {label:'🗑️ 刪除主項目',d:true,fn:`deleteGroup('${esc(cat)}','${esc(gn)}')`},
+  ]);
+}
+function openChildMenu(btnEl,id){
+  showDropdown(btnEl,[
+    {label:'✏️ 編輯',fn:`openEditChildModal('${esc(id)}')`},
+    {label:'✅ 標記完成',fn:`markCompleteById('${esc(id)}')`},
+    {label:'🗑️ 刪除',d:true,fn:`deleteChild('${esc(id)}')`},
+  ]);
+}
+
+/* ═══════════════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════════════ */
+let _modalCb=null;
+function openModal(title,bodyHtml,onSave){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').innerHTML=bodyHtml;
+  document.getElementById('btn-modal-save').style.display='';
+  document.getElementById('btn-modal-cancel').textContent='取消';
+  _modalCb=onSave;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');_modalCb=null;}
+document.getElementById('btn-modal-cancel').addEventListener('click',closeModal);
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+document.getElementById('btn-modal-save').addEventListener('click',async()=>{
+  if(!_modalCb) return;
+  const btn=document.getElementById('btn-modal-save');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>儲存中…';
+  try{await _modalCb();closeModal();}catch(e){showToast('⚠️ '+e.message);}
+  finally{btn.disabled=false;btn.textContent='儲存';}
+});
+
+/* ═══════════════════════════════════════════════════
+   FIX 3: ADD GROUP — 包含狀態/優先/截止
+   ═══════════════════════════════════════════════════ */
+function openAddGroupModal(cat){
+  const sOpts=(statusOptions[cat]||[]).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  openModal(`新增主項目（${cat}）`,`
+    <div class="form-group">
+      <label class="form-label">主項目名稱 *</label>
+      <input class="form-input" id="f-gname" placeholder="例：Q2 報告" maxlength="50" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">狀態</label>
+      <select class="form-select" id="f-gstatus">
+        <option value="">請選擇狀態</option>${sOpts}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">優先程度</label>
+      <select class="form-select" id="f-gprio">
+        <option value="中">🟡 中</option>
+        <option value="高">🔴 高</option>
+        <option value="低">🟢 低</option>
+        <option value="">未設定</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">截止日期</label>
+      <input class="form-input" id="f-gdue" type="date">
+    </div>`,
+  async()=>{
+    const name    =document.getElementById('f-gname').value.trim();
+    if(!name) throw new Error('請填寫主項目名稱');
+    const status  =document.getElementById('f-gstatus').value;
+    const priority=document.getElementById('f-gprio').value;
+    const due     =document.getElementById('f-gdue').value;
+    const res=await apiPost({action:'addGroup',cat,name,status,priority,due});
+    if(res.status!=='success') throw new Error(res.message||'新增失敗');
+    allItems.push({id:res.id,'大類':cat,'主項目名稱':name,'子項目名稱':'','截止日期':due,'備註':'','優先程度':priority,'狀態':status,'是否完成':'FALSE','完成日期':''});
+    showToast('✅ 主項目已新增！');
+    renderTab(catToTab(cat));
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   FIX 3: EDIT GROUP — 編輯主項目 meta
+   ═══════════════════════════════════════════════════ */
+function openEditGroupModal(cat,groupName,metaId){
+  const meta=getGroupMeta(cat,groupName);
+  const sOpts=(statusOptions[cat]||[]).map(s=>`<option value="${esc(s)}"${meta.status===s?' selected':''}>${esc(s)}</option>`).join('');
+  const pOpts=['高','中','低',''].map(p=>`<option value="${p}"${meta.priority===p?' selected':''}>${p==='高'?'🔴 高':p==='中'?'🟡 中':p==='低'?'🟢 低':'未設定'}</option>`).join('');
+  openModal(`編輯主項目`,`
+    <div class="form-group">
+      <label class="form-label">主項目名稱</label>
+      <input class="form-input" id="f-gname" value="${esc(groupName)}" maxlength="50">
+    </div>
+    <div class="form-group">
+      <label class="form-label">狀態</label>
+      <select class="form-select" id="f-gstatus">
+        <option value="">請選擇狀態</option>${sOpts}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">優先程度</label>
+      <select class="form-select" id="f-gprio">${pOpts}</select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">截止日期</label>
+      <input class="form-input" id="f-gdue" type="date" value="${esc(meta.due||'')}">
+    </div>`,
+  async()=>{
+    const newName =document.getElementById('f-gname').value.trim();
+    if(!newName) throw new Error('請填寫主項目名稱');
+    const status  =document.getElementById('f-gstatus').value;
+    const priority=document.getElementById('f-gprio').value;
+    const due     =document.getElementById('f-gdue').value;
+    // 更新佔位行 meta
+    if(meta.id){
+      const res=await apiPost({action:'editGroupMeta',id:meta.id,status,priority,due,newName,cat,oldName:groupName});
+      if(res.status!=='success') throw new Error(res.message||'更新失敗');
+    }
+    // 本地 state 更新
+    allItems.forEach(it=>{
+      if(it['大類']===cat&&it['主項目名稱']===groupName){
+        it['主項目名稱']=newName;
+        if(!it['子項目名稱']){
+          it['狀態']=status; it['優先程度']=priority; it['截止日期']=due;
+        }
+      }
+    });
+    overviewGroupOrder=overviewGroupOrder.map(k=>k===cat+'||'+groupName ? cat+'||'+newName : k);
+    showToast('✅ 主項目已更新！');
+    renderTab(catToTab(cat));
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   ADD CHILD
+   ═══════════════════════════════════════════════════ */
+function openAddChildModal(cat,groupName){
+  openModal(`新增子項目 → ${groupName}`,`
+    <div class="form-group">
+      <label class="form-label">子項目名稱 *</label>
+      <input class="form-input" id="f-cname" placeholder="例：撰寫摘要" maxlength="100" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">備註</label>
+      <textarea class="form-textarea" id="f-note" placeholder="備註說明（可選）"></textarea>
+    </div>`,
+  async()=>{
+    const childName=document.getElementById('f-cname').value.trim();
+    if(!childName) throw new Error('請填寫子項目名稱');
+    const note=document.getElementById('f-note').value.trim();
+    const res=await apiPost({action:'add',cat,groupName,childName,status:'',priority:'',due:'',note});
+    if(res.status!=='success') throw new Error(res.message||'新增失敗');
+    allItems.push({id:res.id,'大類':cat,'主項目名稱':groupName,'子項目名稱':childName,'截止日期':'','備註':note,'優先程度':'','狀態':'','是否完成':'FALSE','完成日期':''});
+    showToast('✅ 子項目已新增！');
+    renderTab(catToTab(cat));
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   EDIT CHILD
+   ═══════════════════════════════════════════════════ */
+function openEditChildModal(id){
+  const it=allItems.find(i=>i.id===id); if(!it) return;
+  openModal('編輯子項目',`
+    <div class="form-group">
+      <label class="form-label">子項目名稱 *</label>
+      <input class="form-input" id="f-cname" value="${esc(it['子項目名稱'])}" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label class="form-label">備註</label>
+      <textarea class="form-textarea" id="f-note">${esc(it['備註']||'')}</textarea>
+    </div>`,
+  async()=>{
+    const childName=document.getElementById('f-cname').value.trim();
+    if(!childName) throw new Error('請填寫子項目名稱');
+    const note=document.getElementById('f-note').value.trim();
+    const res=await apiPost({action:'edit',id,childName,status:it['狀態'],priority:it['優先程度'],due:it['截止日期'],note});
+    if(res.status!=='success') throw new Error(res.message||'更新失敗');
+    Object.assign(it,{'子項目名稱':childName,'備註':note});
+    showToast('✅ 已更新！');
+    renderTab(catToTab(it['大類']));
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   DELETE / COMPLETE
+   ═══════════════════════════════════════════════════ */
+async function deleteChild(id){
+  if(!confirm('確定要刪除這個子項目嗎？')) return;
+  const it=allItems.find(i=>i.id===id);
+  try{
+    const res=await apiPost({action:'delete',id});
+    if(res.status!=='success') throw new Error(res.message);
+    allItems=allItems.filter(i=>i.id!==id);
+    pendingComplete=pendingComplete.filter(p=>p.id!==id);
+    updateFab();
+    showToast('🗑️ 已刪除');
+    if(it) renderTab(catToTab(it['大類']));
+  }catch(e){showToast('⚠️ 刪除失敗：'+e.message);}
+}
+async function deleteGroup(cat,gn){
+  if(!confirm(`確定要刪除「${gn}」及其所有子項目嗎？`)) return;
+  try{
+    const res=await apiPost({action:'deleteGroup',cat,groupName:gn});
+    if(res.status!=='success') throw new Error(res.message);
+    const ids=allItems.filter(i=>i['大類']===cat&&i['主項目名稱']===gn).map(i=>i.id);
+    allItems=allItems.filter(i=>!(i['大類']===cat&&i['主項目名稱']===gn));
+    pendingComplete=pendingComplete.filter(p=>!ids.includes(p.id));
+    overviewGroupOrder=overviewGroupOrder.filter(k=>k!==cat+'||'+gn);
+    updateFab();
+    showToast('🗑️ 主項目已刪除');
+    renderTab(catToTab(cat));
+  }catch(e){showToast('⚠️ 刪除失敗：'+e.message);}
+}
+async function markCompleteById(id){
+  const it=allItems.find(i=>i.id===id);
+  if(!it||it['是否完成']==='TRUE'){showToast('此項目已完成');return;}
+  try{
+    const res=await apiPost({action:'complete',id,completeDate:todayStr()});
+    if(res.status!=='success') throw new Error(res.message);
+    it['是否完成']='TRUE'; it['完成日期']=todayStr();
+    showToast('✅ 已標記完成！');
+    renderTab(catToTab(it['大類']));
+  }catch(e){showToast('⚠️ 操作失敗：'+e.message);}
+}
+
+/* ═══════════════════════════════════════════════════
+   CALENDAR
+   ═══════════════════════════════════════════════════ */
+function renderCalendar(){
+  const wrap=document.getElementById('calendar-wrap');
+  const mn=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const dl=['日','一','二','三','四','五','六'];
+  const y=calendarYear, m=calendarMonth;
+  const fd=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate(), today=new Date();
+  const td=todayStr();
+  function getCount(ds){
+    if(ds<td&&dailyCounts[ds]!==undefined) return dailyCounts[ds];
+    return allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&it['是否完成']==='TRUE'&&it['子項目名稱']).length;
+  }
+  let mTotal=0;
+  let cells=dl.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+  for(let i=0;i<fd;i++) cells+='<div class="cal-cell empty"></div>';
+  for(let d=1;d<=dim;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isT=y===today.getFullYear()&&m===today.getMonth()&&d===today.getDate();
+    const cnt=getCount(ds); if(cnt>0) mTotal+=cnt;
+    cells+=`<div class="cal-cell${isT?' today':''}${cnt>0?' has-data':''}"${cnt>0?` onclick="showDayModal('${ds}')"`:''}>${d}${cnt>0?`<span class="cal-count">${cnt}</span>`:''}</div>`;
+  }
+  wrap.innerHTML=`
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="changeCalMonth(-1)">◀</button>
+      <div class="cal-title">${y} ${mn[m]}</div>
+      <button class="cal-nav-btn" onclick="changeCalMonth(1)">▶</button>
+    </div>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-summary"><div class="cal-summary-num">${mTotal}</div><div class="cal-summary-label">本月完成項目</div></div>`;
+}
+function changeCalMonth(dir){
+  calendarMonth+=dir;
+  if(calendarMonth<0){calendarMonth=11;calendarYear--;}
+  if(calendarMonth>11){calendarMonth=0;calendarYear++;}
+  renderCalendar();
+}
+function showDayModal(ds){
+  const [,mm,dd]=ds.split('-');
+  const items=allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&it['是否完成']==='TRUE'&&it['子項目名稱']);
+  const body=items.length===0
+    ?`<p style="color:var(--text3);font-size:14px;text-align:center;padding:16px">無完成記錄</p>`
+    :items.map(it=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:18px">✅</span>
+        <div>
+          <div style="font-size:14px;font-weight:600">${esc(it['子項目名稱'])}</div>
+          <div style="font-size:12px;color:var(--text3)">${esc(it['大類'])} · ${esc(it['主項目名稱'])}</div>
+        </div>
+      </div>`).join('');
+  document.getElementById('modal-title').textContent=`${parseInt(mm)}月${parseInt(dd)}日 完成項目`;
+  document.getElementById('modal-body').innerHTML=`<div>${body}</div>`;
+  document.getElementById('btn-modal-save').style.display='none';
+  document.getElementById('btn-modal-cancel').textContent='關閉';
+  _modalCb=null;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+</script>
+</body>
+</html>
