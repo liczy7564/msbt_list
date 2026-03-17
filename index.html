@@ -15,14 +15,25 @@
   --danger:#C96B6B;--nav-h:68px;--radius:12px;
   --shadow:0 2px 12px rgba(92,74,58,.08);
   --shadow-md:0 4px 24px rgba(92,74,58,.14);
+  --max-w:880px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
-body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+/* 桌面版：外層深色背景 + 置中容器 */
+body{font-family:'Nunito',sans-serif;background:#DDD0C4;color:var(--text);-webkit-font-smoothing:antialiased}
+@media(min-width:881px){
+  .page{left:50%!important;transform:translateX(-50%)!important;width:var(--max-w)!important;border-radius:20px;overflow:hidden;box-shadow:0 8px 48px rgba(92,74,58,.22);}
+  .page.fade-in{animation:fadeInDesk .3s ease forwards}
+  @keyframes fadeInDesk{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  #bottom-nav{left:50%;transform:translateX(-50%);width:var(--max-w);border-radius:0 0 20px 20px;}
+  #save-fab{right:calc(50% - var(--max-w)/2 + 20px);}
+  .dropdown-menu{min-width:180px;}
+  .modal-sheet{max-width:var(--max-w)!important;}
+}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
 input,select,textarea{font-family:inherit;outline:none}
 
-.page{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);opacity:0;transition:opacity .3s;max-width: 880px; margin: auto; box-shadow: 0px 5px 47px #c5b7b4;}
+.page{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);opacity:0;transition:opacity .3s}
 .page.active{display:flex;opacity:1}
 .page.fade-in{animation:fadeIn .3s ease forwards}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -52,7 +63,7 @@ input,select,textarea{font-family:inherit;outline:none}
 .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 
 .inner-page{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:calc(var(--nav-h)+16px);-webkit-overflow-scrolling:touch}
-.page-header{padding:20px 20px 12px;position:sticky;top:0;background:var(--bg);z-index:10;border-bottom:1px solid var(--border);box-shadow: 0px 2px 7px #c5b7b4;}
+.page-header{padding:20px 20px 12px;position:sticky;top:0;background:var(--bg);z-index:10;border-bottom:1px solid var(--border)}
 .page-header h1{font-size:20px;font-weight:800}
 .page-header .subtitle{font-size:13px;color:var(--text3);margin-top:2px}
 
@@ -310,6 +321,9 @@ input,select,textarea{font-family:inherit;outline:none}
    ═══════════════════════════════════════════════════ */
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiahk4_4MnuFwZ9h8kxNckZzAKwQiNMxdCHA3z4hrqxgjB5WL5uG1IEsSBRfr5MBdE/exec';
 
+// 安全 Token：與 Code.gs 的 SECRET_TOKEN 保持一致
+const API_TOKEN = 'tk_f9bf508f068b0403ea3d9cd2cc9247cc';
+
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
@@ -361,19 +375,22 @@ function priorityTag(p){
 function esc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+// Google Sheets 布林值讀出可能是 true/TRUE/True，統一用此 helper 判斷
+function isDone(it){ return String(it['是否完成']||'').toUpperCase()==='TRUE'; }
+function isNotDone(it){ return !isDone(it); }
 
 /* ═══════════════════════════════════════════════════
    API
    ═══════════════════════════════════════════════════ */
 async function apiGet(action){
-  const r=await fetch(`${APPS_SCRIPT_URL}?action=${action}&t=${Date.now()}`);
+  const r=await fetch(`${APPS_SCRIPT_URL}?action=${action}&token=${API_TOKEN}&t=${Date.now()}`);
   const txt=await r.text();
   try{return JSON.parse(txt);}catch{throw new Error('格式錯誤: '+txt.slice(0,120));}
 }
 async function apiPost(payload){
   const r=await fetch(APPS_SCRIPT_URL,{
     method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(payload)
+    body:JSON.stringify({...payload, token:API_TOKEN})
   });
   const txt=await r.text();
   try{return JSON.parse(txt);}catch{throw new Error('格式錯誤: '+txt.slice(0,120));}
@@ -395,7 +412,7 @@ function rebuildOrder(){
   const _pendingIds=new Set(pendingComplete.map(p=>p.id));
   const fromData=[];
   allItems.filter(it=>
-    it['是否完成']!=='TRUE' &&
+    isNotDone(it) &&
     it['主項目名稱'] &&
     it['子項目名稱'] &&
     !_pendingIds.has(it.id)
@@ -419,7 +436,7 @@ function rebuildOrder(){
 function triggerDailyRecord(){
   const yd=yesterdayStr();
   if(dailyCounts[yd]!==undefined) return;
-  const cnt=allItems.filter(it=>String(it['完成日期']).slice(0,10)===yd&&it['是否完成']==='TRUE'&&it['子項目名稱']).length;
+  const cnt=allItems.filter(it=>String(it['完成日期']).slice(0,10)===yd&&isDone(it)&&it['子項目名稱']).length;
   apiPost({action:'recordDaily',date:yd,count:cnt}).then(res=>{
     if(res.status==='success') dailyCounts[yd]=cnt;
   }).catch(()=>{});
@@ -511,7 +528,7 @@ function renderOverview(){
   // 這是所有過濾邏輯的唯一標準，統一用 isActiveIncomplete()
   const pendingIds=new Set(pendingComplete.map(p=>p.id));
   function isActiveIncomplete(it){
-    return it['是否完成']!=='TRUE' && it['子項目名稱'] && !pendingIds.has(it.id);
+    return isNotDone(it) && it['子項目名稱'] && !pendingIds.has(it.id);
   }
 
   const incomplete=allItems.filter(isActiveIncomplete);
@@ -570,7 +587,7 @@ function renderGroupPage(cat,containerId){
   // 判斷主項目是否全部完成
   function isGroupAllDone(name){
     const ch=items.filter(it=>it['主項目名稱']===name&&it['子項目名稱']);
-    return ch.length>0 && ch.every(it=>it['是否完成']==='TRUE');
+    return ch.length>0 && ch.every(isDone);
   }
 
   const undoneGroups=names.filter(n=>!isGroupAllDone(n));
@@ -591,7 +608,7 @@ function renderGroupPage(cat,containerId){
    ═══════════════════════════════════════════════════ */
 function buildGroupCardHtml(cat,groupName,displayKids,overviewMode){
   const allKids=allItems.filter(it=>it['大類']===cat&&it['主項目名稱']===groupName&&it['子項目名稱']);
-  const doneCount=allKids.filter(it=>it['是否完成']==='TRUE').length;
+  const doneCount=allKids.filter(isDone).length;
   const total=allKids.length;
   const allDone=doneCount===total&&total>0;
 
@@ -619,8 +636,8 @@ function buildGroupCardHtml(cat,groupName,displayKids,overviewMode){
   } else {
     // overview 直接顯示，group page 未完成在前
     const ordered=overviewMode ? displayKids : [
-      ...displayKids.filter(it=>it['是否完成']!=='TRUE'),
-      ...displayKids.filter(it=>it['是否完成']==='TRUE'),
+      ...displayKids.filter(isNotDone),
+      ...displayKids.filter(isDone),
     ];
     ordered.forEach(it=>{ kidsHtml+=buildChildItemHtml(it,overviewMode); });
   }
@@ -651,7 +668,7 @@ function buildGroupCardHtml(cat,groupName,displayKids,overviewMode){
    CHILD ITEM HTML （子項目本身不再顯示 meta，只顯示名稱+備註）
    ═══════════════════════════════════════════════════ */
 function buildChildItemHtml(it,overviewMode){
-  const done=it['是否完成']==='TRUE';
+  const done=isDone(it);
   const isPending=pendingComplete.some(p=>p.id===it.id);
   let checkClass='child-check';
   if(done) checkClass+=' checked';
@@ -1051,7 +1068,7 @@ async function deleteGroup(cat,gn){
 }
 async function markCompleteById(id){
   const it=allItems.find(i=>i.id===id);
-  if(!it||it['是否完成']==='TRUE'){showToast('此項目已完成');return;}
+  if(!it||isDone(it)){showToast('此項目已完成');return;}
   try{
     const res=await apiPost({action:'complete',id,completeDate:todayStr()});
     if(res.status!=='success') throw new Error(res.message);
@@ -1073,7 +1090,7 @@ function renderCalendar(){
   const td=todayStr();
   function getCount(ds){
     if(ds<td&&dailyCounts[ds]!==undefined) return dailyCounts[ds];
-    return allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&it['是否完成']==='TRUE'&&it['子項目名稱']).length;
+    return allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&isDone(it)&&it['子項目名稱']).length;
   }
   let mTotal=0;
   let cells=dl.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
@@ -1101,7 +1118,7 @@ function changeCalMonth(dir){
 }
 function showDayModal(ds){
   const [,mm,dd]=ds.split('-');
-  const items=allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&it['是否完成']==='TRUE'&&it['子項目名稱']);
+  const items=allItems.filter(it=>String(it['完成日期']).slice(0,10)===ds&&isDone(it)&&it['子項目名稱']);
   const body=items.length===0
     ?`<p style="color:var(--text3);font-size:14px;text-align:center;padding:16px">無完成記錄</p>`
     :items.map(it=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
